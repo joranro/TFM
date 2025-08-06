@@ -53,11 +53,28 @@ public class TurtleAgent : Agent
         }
 
         CurrentEpisode++;
+        
+        // Notificar al sistema de métricas ML-Agents ANTES de resetear el reward
+        var metrics = GetComponent<TurtleMetrics>();
+        if (metrics != null)
+        {
+            if (CurrentEpisode == 1)
+            {
+                metrics.OnEpisodeStart();
+            }
+            else
+            {
+                // Capturar el reward final antes de resetearlo
+                metrics.OnEpisodeEnd(true);
+                metrics.OnEpisodeStart();
+            }
+        }
+        
+        // Resetear el reward DESPUÉS de notificar a las métricas
         CumulativeReward = 0f;
         _renderer.material.color = Color.blue;
 
         SpawnObjects();
-
     }
 
     private IEnumerator FlashGround(Color targetColor, float duration)
@@ -188,10 +205,20 @@ public class TurtleAgent : Agent
             // Apply a small negative reward when the collision starts
             AddReward(-0.05f);
 
+            // Update the cumulative reward after adding the collision penalty
+            CumulativeReward = GetCumulativeReward();
+
             // Change the color of the TurtleAgent to red
             if (_renderer != null)
             {
                 _renderer.material.color = Color.red;
+            }
+            
+            // Notificar al sistema de métricas ML-Agents
+            var metrics = GetComponent<TurtleMetrics>();
+            if (metrics != null)
+            {
+                metrics.OnCollision();
             }
         }
     }
@@ -202,6 +229,9 @@ public class TurtleAgent : Agent
         {
             // Continually penalize the agent while it is in contact with the wall
             AddReward(-0.01f * Time.fixedDeltaTime);
+            
+            // Update the cumulative reward after adding the collision penalty
+            CumulativeReward = GetCumulativeReward();
         }
     }
 

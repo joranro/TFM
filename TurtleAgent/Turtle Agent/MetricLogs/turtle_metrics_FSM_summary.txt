@@ -1,0 +1,21 @@
+TURTLE FSM METRICS SUMMARY
+==============================
+Agent Type: FSM
+Total Episodes: 50
+Successful Episodes: 50
+Success Rate: 100.0 %
+Average Time per Episode: 1.42s
+Average Steps per Episode: 71.14
+Average Reward per Episode: 9.98
+Average Path Efficiency: 98.0 %
+Average Collisions per Episode: 0
+Average Direction Changes per Episode: 1
+
+PATH EFFICIENCY EXPLANATION:
+Path Efficiency = Direct Distance / Actual Distance Traveled
+• 100% = Perfect path (straight line to goal)
+• 80% = Very efficient path (slight deviations)
+• 50% = Moderate efficiency (some wandering)
+• 20% = Low efficiency (much wandering/collisions)
+• Values below 20% indicate significant inefficiency
+• Calculation uses both path points and movement tracking
