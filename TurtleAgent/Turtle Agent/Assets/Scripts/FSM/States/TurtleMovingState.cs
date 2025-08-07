@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// Estado de movimiento hacia adelante
+/// </summary>
 public class TurtleMovingState : TurtleStateBase
 {
     public TurtleMovingState(TurtleFSM fsm, TurtleAgentFSM agent) : base(fsm, agent) { }
@@ -11,7 +14,6 @@ public class TurtleMovingState : TurtleStateBase
 
     public override void FixedUpdate()
     {
-        // Mover hacia adelante
         agent.transform.position += agent.transform.forward * agent.MoveSpeed * Time.fixedDeltaTime;
     }
 } 

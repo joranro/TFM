@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// Estado de reposo del agente
+/// </summary>
 public class TurtleIdleState : TurtleStateBase
 {
     public TurtleIdleState(TurtleFSM fsm, TurtleAgentFSM agent) : base(fsm, agent) { }

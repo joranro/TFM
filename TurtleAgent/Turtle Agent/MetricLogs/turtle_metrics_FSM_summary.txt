@@ -4,10 +4,10 @@ Agent Type: FSM
 Total Episodes: 50
 Successful Episodes: 50
 Success Rate: 100.0 %
-Average Time per Episode: 1.42s
-Average Steps per Episode: 71.14
+Average Time per Episode: 1.25s
+Average Steps per Episode: 62.36
 Average Reward per Episode: 9.98
-Average Path Efficiency: 98.0 %
+Average Path Efficiency: 94.0 %
 Average Collisions per Episode: 0
 Average Direction Changes per Episode: 1
 

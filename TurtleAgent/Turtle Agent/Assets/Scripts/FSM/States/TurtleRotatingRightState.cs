@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// Estado de rotación hacia la derecha
+/// </summary>
 public class TurtleRotatingRightState : TurtleStateBase
 {
     public TurtleRotatingRightState(TurtleFSM fsm, TurtleAgentFSM agent) : base(fsm, agent) { }
@@ -11,7 +14,6 @@ public class TurtleRotatingRightState : TurtleStateBase
 
     public override void FixedUpdate()
     {
-        // Girar a la derecha
         agent.transform.Rotate(0f, agent.RotationSpeed * Time.fixedDeltaTime, 0f);
     }
 } 

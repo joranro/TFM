@@ -1,8 +1,11 @@
 using UnityEngine;
 
+/// <summary>
+/// Configuración automática del sistema de métricas
+/// </summary>
 public class TurtleMetricsSetup : MonoBehaviour
 {
-    [Header("Setup Settings")]
+    [Header("Configuración")]
     [SerializeField] private bool autoSetup = true;
     [SerializeField] private bool enableMetrics = true;
     [SerializeField] private bool logToFile = true;
@@ -20,7 +23,6 @@ public class TurtleMetricsSetup : MonoBehaviour
     
     private void PerformAutoSetup()
     {
-        // Buscar o crear TurtleMetrics
         var metrics = GetComponent<TurtleMetrics>();
         if (metrics == null)
         {
@@ -28,7 +30,6 @@ public class TurtleMetricsSetup : MonoBehaviour
             Debug.Log("TurtleMetricsSetup: Añadido TurtleMetrics al GameObject");
         }
         
-        // Configurar métricas mediante reflexión
         var enableMetricsField = typeof(TurtleMetrics).GetField("enableMetrics", 
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         var logToFileField = typeof(TurtleMetrics).GetField("logToFile", 
@@ -45,9 +46,6 @@ public class TurtleMetricsSetup : MonoBehaviour
         if (maxEpisodesField != null) maxEpisodesField.SetValue(metrics, maxEpisodes);
         if (showOnScreenField != null) showOnScreenField.SetValue(metrics, showOnScreen);
         if (toggleKeyField != null) toggleKeyField.SetValue(metrics, toggleKey);
-        
-        // NO llamar a OnEpisodeStart() aquí
-        // Los agentes se encargan de iniciar sus propios episodios
         
         Debug.Log("TurtleMetricsSetup: Configuración completada para ambos tipos de agente");
     }

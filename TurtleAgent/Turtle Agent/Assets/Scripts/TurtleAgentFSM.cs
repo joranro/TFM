@@ -1,17 +1,21 @@
 using UnityEngine;
 using System.Collections;
 
+/// <summary>
+/// Agente FSM que implementa navegación hacia un objetivo
+/// usando una máquina de estados finitos
+/// </summary>
 public class TurtleAgentFSM : MonoBehaviour
 {
-    [Header("Agent Settings")]
+    [Header("Configuración del Agente")]
     [SerializeField] private Transform _goal;
     [SerializeField] private Renderer _groundRenderer;
     [SerializeField] private float _moveSpeed = 1.5f;
     [SerializeField] private float _rotationSpeed = 180f;
-    [SerializeField] private int _maxSteps = 5000; // Aumentado a 5000
-    [SerializeField] private bool _enableRewardLogs = false; // Desactivado por defecto
+    [SerializeField] private int _maxSteps = 5000;
+    [SerializeField] private bool _enableRewardLogs = false;
 
-    [Header("FSM Component")]
+    [Header("Componente FSM")]
     [SerializeField] private TurtleFSM _fsm;
 
     private Renderer _renderer;
@@ -20,7 +24,6 @@ public class TurtleAgentFSM : MonoBehaviour
     private Color _defaultGroundColor;
     private Coroutine _flashGroundCoroutine;
 
-    // Propiedades públicas para acceso desde estados
     public float MoveSpeed => _moveSpeed;
     public float RotationSpeed => _rotationSpeed;
     public int MaxSteps => _maxSteps;
@@ -31,13 +34,11 @@ public class TurtleAgentFSM : MonoBehaviour
     {
         _renderer = GetComponent<Renderer>();
         
-        // Si no se ha asignado el FSM, intentar encontrarlo
         if (_fsm == null)
         {
             _fsm = GetComponent<TurtleFSM>();
         }
         
-        // Si aún no existe, crearlo
         if (_fsm == null)
         {
             _fsm = gameObject.AddComponent<TurtleFSM>();
@@ -53,7 +54,6 @@ public class TurtleAgentFSM : MonoBehaviour
     {
         Initialize();
         
-        // Notificar al sistema de métricas del inicio del episodio
         var metrics = GetComponent<TurtleMetrics>();
         if (metrics != null)
         {
@@ -73,11 +73,10 @@ public class TurtleAgentFSM : MonoBehaviour
     {
         Debug.Log("TurtleAgentFSM ResetEpisode()");
 
-        // Notificar al sistema de métricas del fin del episodio (éxito)
         var metrics = GetComponent<TurtleMetrics>();
         if (metrics != null)
         {
-            metrics.OnEpisodeEnd(true); // Éxito porque llegó al objetivo
+            metrics.OnEpisodeEnd(true);
         }
 
         if (_groundRenderer != null && _cumulativeReward != 0f)
@@ -98,19 +97,17 @@ public class TurtleAgentFSM : MonoBehaviour
 
         SpawnObjects();
 
-        // Resetear la FSM al estado Idle
-        if (_fsm != null)
-        {
-            _fsm.ChangeState(TurtleState.Idle);
-        }
+        _fsm.ChangeState(TurtleState.Idle);
         
-        // Iniciar nuevo episodio de métricas
         if (metrics != null)
         {
             metrics.OnEpisodeStart();
         }
     }
 
+    /// <summary>
+    /// Efecto visual de flash en el suelo al finalizar episodio
+    /// </summary>
     private IEnumerator FlashGround(Color targetColor, float duration)
     {
         float elapsedTime = 0f;
@@ -125,66 +122,66 @@ public class TurtleAgentFSM : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Reposiciona el agente y el objetivo en posiciones aleatorias
+    /// </summary>
     private void SpawnObjects()
     {
         transform.localRotation = Quaternion.identity;
         transform.localPosition = new Vector3(0f, 0.15f, 0f);
 
-        // Randomizar dirección en el eje Y (ángulo en grados)
         float randomAngle = Random.Range(0f, 360f);
         Vector3 randomDirection = Quaternion.Euler(0f, randomAngle, 0f) * Vector3.forward;
 
-        // Randomizar distancia dentro del rango [1, 2.5]
         float randomDistance = Random.Range(1f, 2.5f);
 
-        // Calcular posición del objetivo
         Vector3 goalPosition = transform.localPosition + randomDirection * randomDistance;
 
-        // Aplicar la posición calculada al objetivo
         _goal.localPosition = new Vector3(goalPosition.x, 0.3f, goalPosition.z);
     }
 
     private void Update()
     {
-        // Incrementar contador de pasos
         _currentStep++;
 
-        // Verificar si se ha excedido el máximo de pasos
         if (_currentStep >= _maxSteps)
         {
             Debug.Log("Máximo de pasos alcanzado. Desactivando métricas y deteniendo agente.");
             
-            // Notificar al sistema de métricas del fin del episodio (fallo)
             var metrics = GetComponent<TurtleMetrics>();
             if (metrics != null)
             {
-                metrics.OnEpisodeEnd(false); // Fallo porque se excedió el límite de pasos
-                metrics.DisableMetrics(); // Desactivar completamente las métricas
+                metrics.OnEpisodeEnd(false);
+                metrics.DisableMetrics();
             }
             
-            // NO reiniciar episodio - dejar que el agente se detenga
-            enabled = false; // Desactivar este script
+            enabled = false;
         }
     }
 
-    // Métodos para el sistema de recompensas
+    /// <summary>
+    /// Añade una recompensa al agente
+    /// </summary>
     public void AddReward(float reward)
     {
         _cumulativeReward += reward;
-        // Solo log para recompensas importantes y si está habilitado
-        if (_enableRewardLogs && Mathf.Abs(reward) > 0.1f)
+        if (_enableRewardLogs)
         {
             Debug.Log($"Recompensa añadida: {reward}. Total acumulado: {_cumulativeReward}");
         }
     }
 
+    /// <summary>
+    /// Aplica penalización por paso para incentivar finalización rápida
+    /// </summary>
     public void AddStepPenalty()
     {
-        // Penalización por paso para animar al agente a terminar rápidamente
         AddReward(-2f / _maxSteps);
     }
 
-    // Métodos para cambiar el color del agente
+    /// <summary>
+    /// Cambia el color visual del agente
+    /// </summary>
     public void SetColor(Color color)
     {
         if (_renderer != null)
@@ -193,40 +190,47 @@ public class TurtleAgentFSM : MonoBehaviour
         }
     }
 
-    // Métodos para obtener información del agente
+    /// <summary>
+    /// Obtiene la posición del objetivo
+    /// </summary>
     public Vector3 GetGoalPosition()
     {
         return _goal != null ? _goal.localPosition : Vector3.zero;
     }
 
+    /// <summary>
+    /// Obtiene la posición actual del agente
+    /// </summary>
     public Vector3 GetAgentPosition()
     {
         return transform.localPosition;
     }
 
+    /// <summary>
+    /// Obtiene la rotación actual del agente en el eje Y
+    /// </summary>
     public float GetAgentRotation()
     {
         return transform.localRotation.eulerAngles.y;
     }
 
+    /// <summary>
+    /// Calcula la distancia actual al objetivo
+    /// </summary>
     public float GetDistanceToGoal()
     {
         if (_goal == null) return float.MaxValue;
         return Vector3.Distance(transform.localPosition, _goal.localPosition);
     }
 
-    // Métodos para debugging
+    /// <summary>
+    /// Muestra información de debug del agente
+    /// </summary>
     public void LogAgentInfo()
     {
         Debug.Log($"TurtleAgentFSM Info - Posición: {transform.localPosition}, " +
                   $"Rotación: {transform.localRotation.eulerAngles.y}, " +
                   $"Pasos: {_currentStep}/{_maxSteps}, " +
                   $"Recompensa: {_cumulativeReward}");
-    }
-
-    // Método para obtener información del estado actual del FSM
-    public string GetFSMInfo()
-    {
-        return _fsm != null ? _fsm.GetCurrentStateInfo() : "FSM no disponible";
     }
 } 

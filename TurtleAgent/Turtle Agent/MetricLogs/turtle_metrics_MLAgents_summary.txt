@@ -4,10 +4,10 @@ Agent Type: ML-Agents
 Total Episodes: 50
 Successful Episodes: 50
 Success Rate: 100.0 %
-Average Time per Episode: 2.43s
-Average Steps per Episode: 121.42
-Average Reward per Episode: 9.95
-Average Path Efficiency: 81.3 %
+Average Time per Episode: 1.97s
+Average Steps per Episode: 98.58
+Average Reward per Episode: 9.96
+Average Path Efficiency: 87.9 %
 Average Collisions per Episode: 0
 Average Direction Changes per Episode: 2
 

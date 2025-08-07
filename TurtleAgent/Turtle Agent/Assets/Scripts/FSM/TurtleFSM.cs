@@ -1,18 +1,21 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+/// <summary>
+/// Máquina de Estados Finitos para el agente tortuga
+/// Maneja las transiciones entre estados y el procesamiento de input
+/// </summary>
 public class TurtleFSM : MonoBehaviour
 {
-    [Header("FSM Settings")]
+    [Header("Configuración FSM")]
     [SerializeField] private TurtleState currentState = TurtleState.Idle;
     [SerializeField] private bool debugMode = true;
-    [SerializeField] private bool autonomousMode = true; // Modo autónomo
+    [SerializeField] private bool autonomousMode = true;
 
     private Dictionary<TurtleState, TurtleStateBase> states;
     private TurtleAgentFSM agent;
-    private float stateEnterTime; // Tiempo de entrada al estado actual
+    private float stateEnterTime;
 
-    // Propiedades públicas para acceso desde estados
     public TurtleState CurrentState => currentState;
     public bool IsColliding { get; private set; } = false;
     public float GetStateEnterTime() => stateEnterTime;
@@ -39,16 +42,13 @@ public class TurtleFSM : MonoBehaviour
 
     private void Start()
     {
-        // Iniciar en estado Idle
         ChangeState(TurtleState.Idle);
     }
 
     private void Update()
     {
-        // Procesar input del usuario
         ProcessInput();
         
-        // Actualizar estado actual
         if (states.ContainsKey(currentState))
         {
             states[currentState].Update();
@@ -57,7 +57,6 @@ public class TurtleFSM : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Actualizar estado actual en FixedUpdate
         if (states.ContainsKey(currentState))
         {
             states[currentState].FixedUpdate();
@@ -66,11 +65,9 @@ public class TurtleFSM : MonoBehaviour
 
     private void ProcessInput()
     {
-        // Solo procesar input si no está en estados especiales
-        if (currentState == TurtleState.ReachedGoal || currentState == TurtleState.Colliding)
+        if (currentState == TurtleState.ReachedGoal)
             return;
 
-        // Si está en modo autónomo y no está en estados especiales, procesar input
         if (autonomousMode)
         {
             ProcessAutonomousInput();
@@ -101,29 +98,21 @@ public class TurtleFSM : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Procesa el input autónomo para navegación hacia el objetivo
+    /// </summary>
     private void ProcessAutonomousInput()
     {
-        // Lógica de navegación autónoma
         Vector3 goalPosition = agent.GetGoalPosition();
         Vector3 agentPosition = agent.GetAgentPosition();
         float agentRotation = agent.GetAgentRotation();
         
-        // Calcular dirección al objetivo
         Vector3 directionToGoal = (goalPosition - agentPosition).normalized;
         float distanceToGoal = Vector3.Distance(agentPosition, goalPosition);
         
-        // Si está muy cerca del objetivo, detenerse
-        if (distanceToGoal < 0.3f)
-        {
-            ChangeState(TurtleState.Idle);
-            return;
-        }
-        
-        // Calcular el ángulo hacia el objetivo
         float targetAngle = Mathf.Atan2(directionToGoal.x, directionToGoal.z) * Mathf.Rad2Deg;
         float angleDifference = Mathf.DeltaAngle(agentRotation, targetAngle);
         
-        // Si el ángulo es muy grande, girar primero
         if (Mathf.Abs(angleDifference) > 15f)
         {
             if (angleDifference > 0)
@@ -137,11 +126,13 @@ public class TurtleFSM : MonoBehaviour
         }
         else
         {
-            // Si está orientado hacia el objetivo, usar estado de navegación
             ChangeState(TurtleState.Navigating);
         }
     }
 
+    /// <summary>
+    /// Cambia el estado actual de la FSM
+    /// </summary>
     public void ChangeState(TurtleState newState)
     {
         if (currentState == newState) return;
@@ -151,30 +142,28 @@ public class TurtleFSM : MonoBehaviour
             Debug.Log($"Turtle FSM: {currentState} -> {newState}");
         }
 
-        // Salir del estado actual
         if (states.ContainsKey(currentState))
         {
             states[currentState].Exit();
         }
 
-        // Cambiar al nuevo estado
         currentState = newState;
-        stateEnterTime = Time.time; // Registrar tiempo de entrada
+        stateEnterTime = Time.time;
 
-        // Entrar al nuevo estado
         if (states.ContainsKey(currentState))
         {
             states[currentState].Enter();
         }
         
-        // Aplicar penalización por paso al cambiar de estado (consistente con ML-Agents OnActionReceived)
         if (agent != null)
         {
             agent.AddStepPenalty();
         }
     }
 
-    // Métodos para manejar colisiones y triggers
+    /// <summary>
+    /// Detecta cuando el agente toca el objetivo
+    /// </summary>
     private void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("Goal"))
@@ -188,6 +177,9 @@ public class TurtleFSM : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Detecta colisiones con paredes
+    /// </summary>
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("Wall"))
@@ -202,6 +194,9 @@ public class TurtleFSM : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Maneja colisiones continuas con paredes
+    /// </summary>
     private void OnCollisionStay(Collision collision)
     {
         if (collision.gameObject.CompareTag("Wall"))
@@ -215,12 +210,14 @@ public class TurtleFSM : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Detecta cuando el agente sale de una colisión
+    /// </summary>
     private void OnCollisionExit(Collision collision)
     {
         if (collision.gameObject.CompareTag("Wall"))
         {
             IsColliding = false;
-            // Volver al estado anterior si no está en un estado especial
             if (currentState == TurtleState.Colliding)
             {
                 ChangeState(TurtleState.Idle);
@@ -231,17 +228,5 @@ public class TurtleFSM : MonoBehaviour
         {
             states[currentState].OnCollisionExit(collision);
         }
-    }
-
-    // Método público para forzar un estado (útil para testing)
-    public void ForceState(TurtleState state)
-    {
-        ChangeState(state);
-    }
-
-    // Método para obtener información del estado actual
-    public string GetCurrentStateInfo()
-    {
-        return $"Current State: {currentState}, IsColliding: {IsColliding}";
     }
 } 

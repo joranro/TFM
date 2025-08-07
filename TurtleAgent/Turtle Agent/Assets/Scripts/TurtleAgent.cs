@@ -4,22 +4,31 @@ using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using System.Collections;
 
+/// <summary>
+/// Agente de ML-Agents que implementa navegación hacia un objetivo
+/// usando aprendizaje por refuerzo. El agente aprende a moverse hacia
+/// el objetivo evitando colisiones con paredes.
+/// </summary>
 public class TurtleAgent : Agent
 {
-
+    [Header("Configuración del Agente")]
     [SerializeField] private Transform _goal;
     [SerializeField] private Renderer _groundRenderer;
     [SerializeField] private float _moveSpeed = 1.5f;
     [SerializeField] private float _rotationSpeed = 180f;
 
+    [Header("Estado del Agente")]
     private Renderer _renderer;
-
     [HideInInspector] public int CurrentEpisode = 0;
     [HideInInspector] public float CumulativeReward = 0f;
 
+    [Header("Efectos Visuales")]
     private Color _defaultGroundColor;
     private Coroutine _flashGroundCoroutine;
 
+    /// <summary>
+    /// Inicialización del agente al comenzar el entrenamiento
+    /// </summary>
     public override void Initialize()
     {
         Debug.Log("Initialize()");
@@ -29,21 +38,23 @@ public class TurtleAgent : Agent
         CumulativeReward = 0f;
 
         if(_groundRenderer != null)
-        { //Store default gray color of the ground plane
+        {
             _defaultGroundColor = _groundRenderer.material.color;
         }
-
     }
 
+    /// <summary>
+    /// Se ejecuta al inicio de cada episodio de entrenamiento
+    /// </summary>
     public override void OnEpisodeBegin()
     {
         Debug.Log("OnEpisodeBegin()");
 
+        // Mostrar flash de color según el resultado del episodio anterior
         if (_groundRenderer != null && CumulativeReward != 0f)
         {
             Color flashColor = (CumulativeReward > 0f) ? Color.green : Color.red;
 
-            // Stop any existing FlashGround coroutine before starting a new one
             if (_flashGroundCoroutine != null)
             {
                 StopCoroutine(_flashGroundCoroutine);
@@ -54,7 +65,7 @@ public class TurtleAgent : Agent
 
         CurrentEpisode++;
         
-        // Notificar al sistema de métricas ML-Agents ANTES de resetear el reward
+        // Integración con sistema de métricas
         var metrics = GetComponent<TurtleMetrics>();
         if (metrics != null)
         {
@@ -64,19 +75,20 @@ public class TurtleAgent : Agent
             }
             else
             {
-                // Capturar el reward final antes de resetearlo
                 metrics.OnEpisodeEnd(true);
                 metrics.OnEpisodeStart();
             }
         }
         
-        // Resetear el reward DESPUÉS de notificar a las métricas
         CumulativeReward = 0f;
         _renderer.material.color = Color.blue;
 
         SpawnObjects();
     }
 
+    /// <summary>
+    /// Efecto visual de flash en el suelo al finalizar episodio
+    /// </summary>
     private IEnumerator FlashGround(Color targetColor, float duration)
     {
         float elapsedTime = 0f;
@@ -91,37 +103,39 @@ public class TurtleAgent : Agent
         }
     }
 
+    /// <summary>
+    /// Reposiciona el agente y el objetivo en posiciones aleatorias
+    /// </summary>
     private void SpawnObjects()
     {
         transform.localRotation = Quaternion.identity;
         transform.localPosition = new Vector3(0f, 0.15f, 0f);
 
-        //Randomize the direction on the Y-axis (angle in degrees)
         float randomAngle = Random.Range(0f, 360f);
         Vector3 randomDirection = Quaternion.Euler(0f, randomAngle, 0f) * Vector3.forward;
 
-        //Randomize the distance withing the range [1, 2.5]
         float randomDistance = Random.Range(1f, 2.5f);
 
-        //Calculate the goal's position
         Vector3 goalPosition = transform.localPosition + randomDirection * randomDistance;
 
-        //Apply the calculated position to the goal
         _goal.localPosition = new Vector3(goalPosition.x, 0.3f, goalPosition.z);
 
     }
 
+    /// <summary>
+    /// Recopila las observaciones que el agente envía al modelo de ML
+    /// </summary>
     public override void CollectObservations(VectorSensor sensor)
     {
-        // The goal position
+        // Posición del objetivo normalizada
         float goalPosX_normalized = _goal.localPosition.x / 5f;
         float goalPosZ_normalized = _goal.localPosition.z / 5f;
 
-        // The turtle's position
+        // Posición de la tortuga normalizada
         float turtlePosX_normalized = transform.localPosition.x / 5f;
         float turtlePosZ_normalized = transform.localPosition.z / 5f;
 
-        // The turtle direction (on the Y Axis)
+        // Rotación de la tortuga normalizada
         float turtleRotation_normalized = (transform.localRotation.eulerAngles.y / 360f) * 2f -1f;
 
         sensor.AddObservation(goalPosX_normalized);
@@ -131,57 +145,66 @@ public class TurtleAgent : Agent
         sensor.AddObservation(turtleRotation_normalized);
     }
 
+    /// <summary>
+    /// Control manual del agente para testing
+    /// </summary>
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var discreteActionsOut = actionsOut.DiscreteActions;
 
-        discreteActionsOut[0] = 0; // don't move - do nothing!
+        discreteActionsOut[0] = 0; // No hacer nada
 
         if (Input.GetKey(KeyCode.UpArrow))
         {
-            discreteActionsOut[0] = 1;
+            discreteActionsOut[0] = 1; // Avanzar
         }
         else if (Input.GetKey(KeyCode.LeftArrow))
         {
-            discreteActionsOut[0] = 2;
+            discreteActionsOut[0] = 2; // Girar izquierda
         }
         else if (Input.GetKey(KeyCode.RightArrow))
         {
-            discreteActionsOut[0] = 3;
+            discreteActionsOut[0] = 3; // Girar derecha
         }
     }
 
-
+    /// <summary>
+    /// Procesa las acciones recibidas del modelo de ML
+    /// </summary>
     public override void OnActionReceived(ActionBuffers actions)
     {
-        // Move the agent using the action.
         MoveAgent(actions.DiscreteActions);
 
-        // Penalty given each step to encourage agent to finish task quickly.
+        // Penalización por paso para incentivar finalización rápida
         AddReward(-2f / MaxStep);
 
-        // Update the cumulative reward after adding the step penalty.
         CumulativeReward = GetCumulativeReward();
     }
 
+    /// <summary>
+    /// Ejecuta el movimiento del agente según la acción recibida
+    /// </summary>
     public void MoveAgent(ActionSegment<int> act)
     {
         var action = act[0];
 
         switch (action)
         {
-            case 1: // Move forward
+            case 1: // Avanzar
                 transform.position += transform.forward * _moveSpeed * Time.deltaTime;
                 break;
-            case 2: // Rotate left
+            case 2: // Girar izquierda
                 transform.Rotate(0f, -_rotationSpeed * Time.deltaTime, 0f);
                 break;
-            case 3: // Rotate right
+            case 3: // Girar derecha
                 transform.Rotate(0f, _rotationSpeed * Time.deltaTime, 0f);
                 break;
         }
     }
 
+    /// <summary>
+    /// Detecta cuando el agente toca el objetivo
+    /// </summary>
     private void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("Goal"))
@@ -190,31 +213,32 @@ public class TurtleAgent : Agent
         }
     }
 
+    /// <summary>
+    /// Maneja el evento de llegar al objetivo
+    /// </summary>
     private void GoalReached()
     {
-        AddReward(10f); // Large reward for reaching the goal
+        AddReward(10f); // Recompensa grande por alcanzar el objetivo
         CumulativeReward = GetCumulativeReward();
 
         EndEpisode();
     }
 
+    /// <summary>
+    /// Detecta colisiones con paredes
+    /// </summary>
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("Wall"))
         {
-            // Apply a small negative reward when the collision starts
             AddReward(-0.05f);
-
-            // Update the cumulative reward after adding the collision penalty
             CumulativeReward = GetCumulativeReward();
 
-            // Change the color of the TurtleAgent to red
             if (_renderer != null)
             {
                 _renderer.material.color = Color.red;
             }
             
-            // Notificar al sistema de métricas ML-Agents
             var metrics = GetComponent<TurtleMetrics>();
             if (metrics != null)
             {
@@ -223,26 +247,27 @@ public class TurtleAgent : Agent
         }
     }
 
+    /// <summary>
+    /// Penalización continua mientras está colisionando
+    /// </summary>
     private void OnCollisionStay(Collision collision)
     {
         if (collision.gameObject.CompareTag("Wall"))
         {
-            // Continually penalize the agent while it is in contact with the wall
             AddReward(-0.01f * Time.fixedDeltaTime);
-            
-            // Update the cumulative reward after adding the collision penalty
             CumulativeReward = GetCumulativeReward();
         }
     }
 
+    /// <summary>
+    /// Restaura el color cuando sale de la colisión
+    /// </summary>
     private void OnCollisionExit(Collision collision)
     {
         if (collision.gameObject.CompareTag("Wall"))
         {
-            // Reset the color when the collision ends
             if (_renderer != null)
             {
-                // Assuming blue is the default color
                 _renderer.material.color = Color.blue;
             }
         }

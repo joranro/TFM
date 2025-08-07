@@ -2,27 +2,29 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 
+/// <summary>
+/// Sistema de métricas para tracking de rendimiento de agentes
+/// Compatible con FSM y ML-Agents
+/// </summary>
 public class TurtleMetrics : MonoBehaviour
 {
-    [Header("Metrics Settings")]
+    [Header("Configuración de Métricas")]
     [SerializeField] private bool enableMetrics = true;
     [SerializeField] private bool logToFile = true;
     [SerializeField] private string fileName = "turtle_metrics.csv";
-    [SerializeField] private int maxEpisodes = 100; // Número de episodios a registrar
+    [SerializeField] private int maxEpisodes = 100;
     
-    [Header("Display Settings")]
+    [Header("Configuración de Visualización")]
     [SerializeField] private bool showOnScreen = true;
     [SerializeField] private KeyCode toggleKey = KeyCode.F2;
     
-    // Referencias a componentes
+    // Componentes detectados
     private TurtleAgentFSM fsmAgent;
     private TurtleAgent mlAgent;
     private TurtleFSM fsm;
     
-    // Tipo de agente detectado
     private AgentType agentType;
     
-    // Enum para identificar el tipo de agente
     public enum AgentType
     {
         FSM,
@@ -30,18 +32,16 @@ public class TurtleMetrics : MonoBehaviour
         Unknown
     }
     
-    // Métricas por episodio
+    // Datos de episodios
     private EpisodeMetrics currentEpisode;
     private List<EpisodeMetrics> allEpisodes;
-    
-    // Estadísticas acumuladas
     private MetricsSummary summary;
     
-    // Control de episodios
+    // Control de grabación
     private int episodeCount = 0;
     private bool isRecording = false;
     
-    // Variables para tracking
+    // Variables de tracking
     private Vector3 startPosition;
     private float episodeStartTime;
     private int episodeStartStep;
@@ -49,26 +49,23 @@ public class TurtleMetrics : MonoBehaviour
     private int directionChangeCount;
     private float lastRotation;
     
-    // Para tracking de ruta
+    // Tracking de ruta
     private List<Vector3> pathPoints;
     private float lastPathPointTime;
-    private const float PATH_POINT_INTERVAL = 0.5f; // Registrar punto cada 0.5 segundos (menos frecuente)
+    private const float PATH_POINT_INTERVAL = 0.5f;
     
     private void Awake()
     {
-        // Intentar encontrar componentes
         fsmAgent = GetComponent<TurtleAgentFSM>();
         mlAgent = GetComponent<TurtleAgent>();
         fsm = GetComponent<TurtleFSM>();
         
-        // Detectar tipo de agente
         DetectAgentType();
         
         allEpisodes = new List<EpisodeMetrics>();
         summary = new MetricsSummary();
         pathPoints = new List<Vector3>();
         
-        // Crear archivo CSV si está habilitado
         if (logToFile)
         {
             CreateCSVHeader();
@@ -86,8 +83,6 @@ public class TurtleMetrics : MonoBehaviour
         {
             agentType = AgentType.ML_Agents;
             Debug.Log("TurtleMetrics: Agente ML-Agents detectado");
-            
-            // Debug: listar todos los campos disponibles
             ListAllTurtleAgentFields();
         }
         else
@@ -171,32 +166,28 @@ public class TurtleMetrics : MonoBehaviour
         
         Vector3 currentPos = GetAgentPosition();
         
-        // SOLO registrar puntos de ruta cada cierto intervalo
         if (Time.time - lastPathPointTime > PATH_POINT_INTERVAL)
         {
             pathPoints.Add(currentPos);
             lastPathPointTime = Time.time;
         }
         
-        // Tracking de cambios de dirección
         float currentRotation = GetAgentRotation();
-        if (Mathf.Abs(currentRotation - lastRotation) > 5f) // Umbral de cambio de dirección
+        if (Mathf.Abs(currentRotation - lastRotation) > 5f)
         {
             directionChangeCount++;
         }
         lastRotation = currentRotation;
         
-        // Actualizar métricas del episodio actual
         currentEpisode.steps = GetCurrentStep();
         currentEpisode.time = Time.time - episodeStartTime;
-        currentEpisode.distanceTraveled = CalculateDistanceFromPathPoints(); // Usar cálculo basado en puntos
+        currentEpisode.distanceTraveled = CalculateDistanceFromPathPoints();
         currentEpisode.collisionCount = collisionCount;
         currentEpisode.directionChanges = directionChangeCount;
         currentEpisode.currentDistanceToGoal = GetDistanceToGoal();
         currentEpisode.currentReward = GetCurrentReward();
         
-        // Debug para verificar tracking (menos frecuente)
-        if (Time.frameCount % 600 == 0) // Cada 10 segundos aproximadamente
+        if (Time.frameCount % 600 == 0)
         {
             float initialDistance = Vector3.Distance(startPosition, GetGoalPosition());
             float currentDistance = GetDistanceToGoal();
@@ -207,7 +198,6 @@ public class TurtleMetrics : MonoBehaviour
             Debug.Log($"TurtleMetrics Debug - Distance Progress: {distanceProgress:F2}, Calculated Traveled: {calculatedDistance:F2}");
             Debug.Log($"TurtleMetrics Debug - Path Points: {pathPoints.Count}, Steps: {currentEpisode.steps}, Reward: {currentEpisode.currentReward:F2}");
             
-            // Verificar si la distancia recorrida es razonable
             if (calculatedDistance > initialDistance * 5f)
             {
                 Debug.LogWarning($"TurtleMetrics: Distancia recorrida parece incorrecta - Initial: {initialDistance:F2}, Calculated: {calculatedDistance:F2}");
@@ -219,7 +209,6 @@ public class TurtleMetrics : MonoBehaviour
     {
         if (!enableMetrics) return;
         
-        // Verificar si ya se alcanzó el límite
         if (episodeCount >= maxEpisodes)
         {
             Debug.Log($"TurtleMetrics: OnEpisodeStart() ignorado - Límite alcanzado ({maxEpisodes})");
@@ -228,7 +217,6 @@ public class TurtleMetrics : MonoBehaviour
         
         Debug.Log($"TurtleMetrics: OnEpisodeStart() llamado - isRecording: {isRecording}, episodeCount: {episodeCount}");
         
-        // Solo iniciar nuevo episodio si no estamos grabando ya
         if (!isRecording)
         {
             StartNewEpisode();
@@ -242,9 +230,6 @@ public class TurtleMetrics : MonoBehaviour
     public void OnEpisodeEnd(bool success)
     {
         if (!enableMetrics || currentEpisode == null) return;
-        
-        // NO verificar límite aquí - permitir que el episodio actual se complete
-        // Solo bloquear el inicio del siguiente episodio
         
         CompleteEpisode(success);
     }
@@ -265,7 +250,6 @@ public class TurtleMetrics : MonoBehaviour
     
     private void StartNewEpisode()
     {
-        // Verificar límite ANTES de incrementar el contador
         if (episodeCount >= maxEpisodes)
         {
             Debug.Log($"TurtleMetrics: Límite de episodios alcanzado ({maxEpisodes}). Desactivando métricas.");
@@ -279,7 +263,6 @@ public class TurtleMetrics : MonoBehaviour
         
         Debug.Log($"TurtleMetrics: StartNewEpisode() - Nuevo episodio: {episodeCount}");
         
-        // Resetear variables de tracking
         startPosition = GetAgentPosition();
         episodeStartTime = Time.time;
         episodeStartStep = GetCurrentStep();
@@ -290,7 +273,6 @@ public class TurtleMetrics : MonoBehaviour
         pathPoints.Add(startPosition);
         lastPathPointTime = Time.time;
         
-        // Crear nuevo episodio
         currentEpisode = new EpisodeMetrics
         {
             episodeNumber = episodeCount,
@@ -300,11 +282,9 @@ public class TurtleMetrics : MonoBehaviour
             startStep = episodeStartStep
         };
         
-        // Debug: mostrar distancia inicial
         float initialDistance = Vector3.Distance(startPosition, GetGoalPosition());
         Debug.Log($"TurtleMetrics: Episodio {episodeCount} iniciado - Distancia inicial al objetivo: {initialDistance:F2}");
         
-        // Si este es el último episodio, mostrar mensaje
         if (episodeCount == maxEpisodes)
         {
             Debug.Log($"TurtleMetrics: Iniciando episodio final ({maxEpisodes}/{maxEpisodes})");
@@ -376,57 +356,53 @@ public class TurtleMetrics : MonoBehaviour
         // Los agentes llamarán a OnEpisodeStart() cuando estén listos
     }
     
+    /// <summary>
+    /// Calcula la eficiencia de la ruta del agente
+    /// Eficiencia = Distancia Directa / Distancia Real Recorrida
+    /// </summary>
     private float CalculatePathEfficiency()
     {
         if (pathPoints.Count < 2) return 0f;
         
         float directDistance = Vector3.Distance(startPosition, GetGoalPosition());
-        
-        // Calcular distancia real basada en puntos de ruta
         float actualDistance = CalculateDistanceFromPathPoints();
         
-        // Si no hay puntos de ruta válidos, usar la distancia directa
         if (actualDistance <= 0f)
         {
             actualDistance = directDistance;
         }
         
-        // Evitar división por cero
         if (actualDistance <= 0f) return 0f;
         
-        // Calcular eficiencia
         float efficiency = directDistance / actualDistance;
-        
-        // Clampear entre 0 y 1 (0% a 100%)
         efficiency = Mathf.Clamp01(efficiency);
         
-        // Debug log para verificar valores (solo al final del episodio)
         if (currentEpisode != null && currentEpisode.success)
         {
             Debug.Log($"Path Efficiency Debug - Direct: {directDistance:F2}, Actual: {actualDistance:F2}, Efficiency: {efficiency:P1}");
             Debug.Log($"Path Points Count: {pathPoints.Count}");
         }
         
-        // Verificaciones adicionales para detectar valores anómalos
         if (actualDistance > directDistance * 5f)
         {
             Debug.LogWarning($"Path Efficiency calculation seems wrong - Actual distance too high: {actualDistance:F2} vs Direct: {directDistance:F2}");
-            // Ajustar a un valor más razonable
-            actualDistance = directDistance * 1.5f; // Asumir 50% más que la distancia directa
+            actualDistance = directDistance * 1.5f;
             efficiency = directDistance / actualDistance;
             efficiency = Mathf.Clamp01(efficiency);
         }
         
-        // Si la eficiencia es muy baja pero el agente llegó al objetivo, ajustar
         if (efficiency < 0.1f && currentEpisode != null && currentEpisode.success)
         {
             Debug.LogWarning($"Path Efficiency muy baja ({efficiency:P1}) pero episodio exitoso. Ajustando...");
-            efficiency = Mathf.Max(efficiency, 0.5f); // Mínimo 50% si llegó al objetivo
+            efficiency = Mathf.Max(efficiency, 0.5f);
         }
         
         return efficiency;
     }
     
+    /// <summary>
+    /// Verifica si el agente se está moviendo
+    /// </summary>
     private bool IsAgentMoving()
     {
         if (pathPoints.Count < 2) return false;
@@ -437,24 +413,24 @@ public class TurtleMetrics : MonoBehaviour
         return Vector3.Distance(currentPos, lastPos) > 0.01f;
     }
     
+    /// <summary>
+    /// Calcula la distancia total recorrida basada en los puntos de ruta
+    /// </summary>
     private float CalculateDistanceFromPathPoints()
     {
         if (pathPoints.Count < 2) return 0f;
         
         float totalDistance = 0f;
         
-        // Calcular distancia entre puntos consecutivos
         for (int i = 1; i < pathPoints.Count; i++)
         {
             float segmentDistance = Vector3.Distance(pathPoints[i - 1], pathPoints[i]);
-            // Solo contar segmentos significativos (más de 0.01 unidades)
             if (segmentDistance > 0.01f)
             {
                 totalDistance += segmentDistance;
             }
         }
         
-        // Añadir distancia desde el último punto hasta la posición actual
         Vector3 currentPos = GetAgentPosition();
         if (pathPoints.Count > 0)
         {
@@ -465,23 +441,24 @@ public class TurtleMetrics : MonoBehaviour
             }
         }
         
-        // Si la distancia calculada es muy diferente a la distancia directa, ajustar
         float directDistance = Vector3.Distance(startPosition, GetGoalPosition());
-        if (totalDistance > directDistance * 3f && directDistance > 0.1f) // Ajustar si es más de 3 veces la distancia directa y la directa no es casi cero
+        if (totalDistance > directDistance * 3f && directDistance > 0.1f)
         {
-            return directDistance * 1.5f; // Usar una estimación más conservadora
+            return directDistance * 1.5f;
         }
         
         return totalDistance;
     }
     
+    /// <summary>
+    /// Actualiza las estadísticas acumuladas con los datos de todos los episodios
+    /// </summary>
     private void UpdateSummary()
     {
         summary.totalEpisodes = allEpisodes.Count;
         summary.successfulEpisodes = allEpisodes.FindAll(e => e.success).Count;
         summary.successRate = (float)summary.successfulEpisodes / summary.totalEpisodes;
         
-        // Calcular promedios
         float totalTime = 0f, totalSteps = 0f, totalReward = 0f, totalEfficiency = 0f;
         int totalCollisions = 0, totalDirectionChanges = 0;
         int validEpisodes = 0;
